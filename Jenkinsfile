@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     tools {
-        nodejs 'NodeJS'
+        nodejs 'NodeJS' // Name of your NodeJS installation in Jenkins
     }
 
     environment {
@@ -40,12 +40,12 @@ pipeline {
 
         stage('SonarQube Analysis') {
             steps {
-                withSonarQubeEnv('SonarQubeServer') {
-                    withCredentials([string(
-                        credentialsId: 'inventory-frontend-token',
-                        variable: 'SONAR_TOKEN'
-                    )]) {
-                        bat """
+                script {
+                    // Define scannerHome inside script block
+                    withSonarQubeEnv('SonarQubeServer') {
+                        def scannerHome = tool name: 'SonarScanner', type: 'hudson.plugins.sonar.SonarRunnerInstallation'
+                        withCredentials([string(credentialsId: 'inventory-frontend-token', variable: 'SONAR_TOKEN')]) {
+                            bat """
 "${scannerHome}\\bin\\sonar-scanner.bat" ^
 -Dsonar.projectKey=inventory-frontend ^
 -Dsonar.projectName=Inventory-Frontend ^
@@ -55,6 +55,7 @@ pipeline {
 -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info ^
 -Dsonar.token=%SONAR_TOKEN%
 """
+                        }
                     }
                 }
             }
