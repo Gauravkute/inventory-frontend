@@ -46,7 +46,7 @@ pipeline {
                         variable: 'SONAR_TOKEN'
                     )]) {
                         bat """
-sonar-scanner ^
+"${scannerHome}\\bin\\sonar-scanner.bat" ^
 -Dsonar.projectKey=inventory-frontend ^
 -Dsonar.projectName=Inventory-Frontend ^
 -Dsonar.sources=src ^
