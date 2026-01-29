@@ -25,6 +25,12 @@ pipeline {
             }
         }
 
+        stage('Run Tests with Coverage') {
+            steps {
+                bat 'npm test -- --coverage'
+            }
+        }
+
         stage('Build Project') {
             steps {
                 bat 'npm run build'
@@ -45,6 +51,8 @@ pipeline {
 -Dsonar.projectKey=inventory-frontend ^
 -Dsonar.projectName=Inventory-Frontend ^
 -Dsonar.sources=src ^
+-Dsonar.tests=src ^
+-Dsonar.javascript.lcov.reportPaths=coverage/lcov.info ^
 -Dsonar.token=%SONAR_TOKEN%
 """
                         }
