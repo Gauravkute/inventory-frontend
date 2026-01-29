@@ -71,6 +71,22 @@ pipeline {
             }
         }
 
+        stage('Scan Docker Image with Trivy') {
+            steps {
+                script {
+                    try {
+                        bat """
+trivy image --exit-code 1 --severity HIGH,CRITICAL %IMAGE_NAME%:%IMAGE_TAG%
+"""
+                    } catch (err) {
+                        echo "Trivy found vulnerabilities in the image! Continuing pipeline..."
+                        // Optional: fail the pipeline if you want
+                        // error("Vulnerable image detected. Pipeline stopped.")
+                    }
+                }
+            }
+        }
+
         stage('Push Image to Docker Hub') {
             steps {
                 withCredentials([usernamePassword(
