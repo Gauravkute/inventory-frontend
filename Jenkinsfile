@@ -6,8 +6,8 @@ pipeline {
     }
 
     environment {
-        IMAGE_NAME = "gaurav0915/inventory-frontend"
-        IMAGE_TAG  = "latest"
+        IMAGE_NAME   = "gaurav0915/inventory-frontend"
+        IMAGE_TAG    = "latest"
         TRIVY_REPORT = "trivy-report.html"
     }
 
@@ -40,13 +40,16 @@ pipeline {
 
         stage('Code Quality Check (SonarQube)') {
             steps {
-                withSonarQubeEnv('SonarQubeServer') {
-                    withCredentials([string(
-                        credentialsId: 'inventory-frontend-token',
-                        variable: 'SONAR_TOKEN'
-                    )]) {
-                        def scannerHome = tool 'SonarScanner'
-                        bat """
+                script {
+                    withSonarQubeEnv('SonarQubeServer') {
+                        withCredentials([string(
+                            credentialsId: 'inventory-frontend-token',
+                            variable: 'SONAR_TOKEN'
+                        )]) {
+
+                            def scannerHome = tool 'SonarScanner'
+
+                            bat """
 "${scannerHome}\\bin\\sonar-scanner.bat" ^
 -Dsonar.projectKey=inventory-frontend ^
 -Dsonar.projectName=Inventory-Frontend ^
@@ -56,6 +59,7 @@ pipeline {
 -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info ^
 -Dsonar.token=%SONAR_TOKEN%
 """
+                        }
                     }
                 }
             }
@@ -68,7 +72,7 @@ pipeline {
             }
         }
 
-        stage('Scan Docker Image with Trivy (Generate Report)') {
+        stage('Scan Docker Image with Trivy') {
             steps {
                 script {
                     bat """
@@ -107,7 +111,6 @@ docker push %IMAGE_NAME%:%IMAGE_TAG%
 
     post {
         always {
-            echo 'Archiving Trivy security report'
             archiveArtifacts artifacts: 'trivy-report.html', fingerprint: true
         }
 
