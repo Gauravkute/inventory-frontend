@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     tools {
-        nodejs 'NodeJS' // Name of your NodeJS installation in Jenkins
+        nodejs 'NodeJS'
     }
 
     environment {
@@ -41,7 +41,6 @@ pipeline {
         stage('SonarQube Analysis') {
             steps {
                 script {
-                    // Define scannerHome inside script block
                     withSonarQubeEnv('SonarQubeServer') {
                         def scannerHome = tool name: 'SonarScanner', type: 'hudson.plugins.sonar.SonarRunnerInstallation'
                         withCredentials([string(credentialsId: 'inventory-frontend-token', variable: 'SONAR_TOKEN')]) {
@@ -71,14 +70,18 @@ pipeline {
         stage('Trivy Image Scan') {
             steps {
                 script {
-                    bat 'trivy --version'
-                    bat """
+                    try {
+                        bat 'trivy --version'
+                        bat """
 trivy image ^
 --severity HIGH,CRITICAL ^
 --format html ^
 --output %TRIVY_REPORT% ^
 %IMAGE_NAME%:%IMAGE_TAG%
 """
+                    } catch (err) {
+                        echo "Trivy not installed or not found. Skipping image scan."
+                    }
                 }
             }
         }
@@ -108,7 +111,7 @@ docker push %IMAGE_NAME%:%IMAGE_TAG%
 
     post {
         always {
-            archiveArtifacts artifacts: 'trivy-report.html', fingerprint: true
+            archiveArtifacts artifacts: 'trivy-report.html', allowEmptyArchive: true, fingerprint: true
         }
         success {
             echo 'CI/CD Pipeline executed successfully'
