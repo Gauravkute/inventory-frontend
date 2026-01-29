@@ -26,31 +26,27 @@ pipeline {
             }
         }
 
-        stage('Run Tests with Coverage') {
+        stage('Unit Tests with Coverage') {
             steps {
                 bat 'npm test -- --coverage --watchAll=false --passWithNoTests'
             }
         }
 
-        stage('Build Project') {
+        stage('Build React App') {
             steps {
                 bat 'npm run build'
             }
         }
 
-        stage('Code Quality Check (SonarQube)') {
+        stage('SonarQube Analysis') {
             steps {
-                script {
-                    withSonarQubeEnv('SonarQubeServer') {
-                        withCredentials([string(
-                            credentialsId: 'inventory-frontend-token',
-                            variable: 'SONAR_TOKEN'
-                        )]) {
-
-                            def scannerHome = tool 'SonarScanner'
-
-                            bat """
-"${scannerHome}\\bin\\sonar-scanner.bat" ^
+                withSonarQubeEnv('SonarQubeServer') {
+                    withCredentials([string(
+                        credentialsId: 'inventory-frontend-token',
+                        variable: 'SONAR_TOKEN'
+                    )]) {
+                        bat """
+sonar-scanner ^
 -Dsonar.projectKey=inventory-frontend ^
 -Dsonar.projectName=Inventory-Frontend ^
 -Dsonar.sources=src ^
@@ -59,7 +55,6 @@ pipeline {
 -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info ^
 -Dsonar.token=%SONAR_TOKEN%
 """
-                        }
                     }
                 }
             }
@@ -72,9 +67,10 @@ pipeline {
             }
         }
 
-        stage('Scan Docker Image with Trivy') {
+        stage('Trivy Image Scan') {
             steps {
                 script {
+                    bat 'trivy --version'
                     bat """
 trivy image ^
 --severity HIGH,CRITICAL ^
@@ -113,11 +109,9 @@ docker push %IMAGE_NAME%:%IMAGE_TAG%
         always {
             archiveArtifacts artifacts: 'trivy-report.html', fingerprint: true
         }
-
         success {
             echo 'CI/CD Pipeline executed successfully'
         }
-
         failure {
             echo 'CI/CD Pipeline failed'
         }
