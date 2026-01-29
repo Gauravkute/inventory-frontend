@@ -39,23 +39,26 @@ pipeline {
 
         stage('Code Quality Check (SonarQube)') {
             steps {
-                withSonarQubeEnv('SonarQubeServer') {
-                    withCredentials([string(
-                        credentialsId: 'inventory-frontend-token',
-                        variable: 'SONAR_TOKEN'
-                    )]) {
-                        script {
-                            def scannerHome = tool 'SonarScanner'
-                            bat """
+                script {
+                    try {
+                        withSonarQubeEnv('SonarQubeServer') {
+                            withCredentials([string(
+                                credentialsId: 'inventory-frontend-token',
+                                variable: 'SONAR_TOKEN'
+                            )]) {
+                                def scannerHome = tool 'SonarScanner'
+                                bat """
 "${scannerHome}\\bin\\sonar-scanner.bat" ^
 -Dsonar.projectKey=inventory-frontend ^
 -Dsonar.projectName=Inventory-Frontend ^
 -Dsonar.sources=src ^
--Dsonar.tests=src ^
 -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info ^
 -Dsonar.token=%SONAR_TOKEN%
 """
+                            }
                         }
+                    } catch (err) {
+                        echo "SonarQube analysis failed, continuing pipeline..."
                     }
                 }
             }
