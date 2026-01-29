@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: inventory-backend
+    env: node
+    buildCommand: npm install
+    startCommand: node server.js
+    envVars:
+      - key: MONGODB_URI
+        value: "your_mongodb_atlas_uri"
+      - key: JWT_SECRET
+        value: "your_jwt_secret"
+      - key: PORT
+        value: "8080"
