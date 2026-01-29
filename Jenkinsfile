@@ -8,6 +8,7 @@ pipeline {
     environment {
         IMAGE_NAME = "gaurav0915/inventory-frontend"
         IMAGE_TAG  = "latest"
+        TRIVY_REPORT = "trivy-report.html"
     }
 
     stages {
@@ -27,7 +28,7 @@ pipeline {
 
         stage('Run Tests with Coverage') {
             steps {
-                bat 'npm test -- --coverage --passWithNoTests'
+                bat 'npm test -- --coverage --watchAll=false --passWithNoTests'
             }
         }
 
@@ -39,26 +40,22 @@ pipeline {
 
         stage('Code Quality Check (SonarQube)') {
             steps {
-                script {
-                    try {
-                        withSonarQubeEnv('SonarQubeServer') {
-                            withCredentials([string(
-                                credentialsId: 'inventory-frontend-token',
-                                variable: 'SONAR_TOKEN'
-                            )]) {
-                                def scannerHome = tool 'SonarScanner'
-                                bat """
+                withSonarQubeEnv('SonarQubeServer') {
+                    withCredentials([string(
+                        credentialsId: 'inventory-frontend-token',
+                        variable: 'SONAR_TOKEN'
+                    )]) {
+                        def scannerHome = tool 'SonarScanner'
+                        bat """
 "${scannerHome}\\bin\\sonar-scanner.bat" ^
 -Dsonar.projectKey=inventory-frontend ^
 -Dsonar.projectName=Inventory-Frontend ^
 -Dsonar.sources=src ^
+-Dsonar.tests=src ^
+-Dsonar.test.inclusions=**/*.test.js ^
 -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info ^
 -Dsonar.token=%SONAR_TOKEN%
 """
-                            }
-                        }
-                    } catch (err) {
-                        echo "SonarQube analysis failed, continuing pipeline..."
                     }
                 }
             }
@@ -71,18 +68,16 @@ pipeline {
             }
         }
 
-        stage('Scan Docker Image with Trivy') {
+        stage('Scan Docker Image with Trivy (Generate Report)') {
             steps {
                 script {
-                    try {
-                        bat """
-trivy image --exit-code 1 --severity HIGH,CRITICAL %IMAGE_NAME%:%IMAGE_TAG%
+                    bat """
+trivy image ^
+--severity HIGH,CRITICAL ^
+--format html ^
+--output %TRIVY_REPORT% ^
+%IMAGE_NAME%:%IMAGE_TAG%
 """
-                    } catch (err) {
-                        echo "Trivy found vulnerabilities in the image! Continuing pipeline..."
-                        // Optional: fail the pipeline if you want
-                        // error("Vulnerable image detected. Pipeline stopped.")
-                    }
                 }
             }
         }
@@ -111,9 +106,15 @@ docker push %IMAGE_NAME%:%IMAGE_TAG%
     }
 
     post {
+        always {
+            echo 'Archiving Trivy security report'
+            archiveArtifacts artifacts: 'trivy-report.html', fingerprint: true
+        }
+
         success {
             echo 'CI/CD Pipeline executed successfully'
         }
+
         failure {
             echo 'CI/CD Pipeline failed'
         }
