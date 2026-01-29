@@ -72,13 +72,14 @@ pipeline {
                 script {
                     try {
                         bat 'trivy --version'
-                        bat """
-trivy image ^
---severity HIGH,CRITICAL ^
---format html ^
---output %TRIVY_REPORT% ^
-%IMAGE_NAME%:%IMAGE_TAG%
-"""
+//                         bat """
+// trivy image ^
+// --severity HIGH,CRITICAL ^
+// --format html ^
+// --output %TRIVY_REPORT% ^
+// %IMAGE_NAME%:%IMAGE_TAG%
+// """
+                        bat 'docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:0.68.2 image inventory-frontend:latest'
                     } catch (err) {
                         echo "Trivy not installed or not found. Skipping image scan."
                     }
