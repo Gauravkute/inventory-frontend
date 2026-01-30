@@ -42,8 +42,13 @@ pipeline {
             steps {
                 script {
                     withSonarQubeEnv('SonarQubeServer') {
-                        def scannerHome = tool name: 'SonarScanner', type: 'hudson.plugins.sonar.SonarRunnerInstallation'
-                        withCredentials([string(credentialsId: 'inventory-frontend-token', variable: 'SONAR_TOKEN')]) {
+                        def scannerHome = tool name: 'SonarScanner',
+                            type: 'hudson.plugins.sonar.SonarRunnerInstallation'
+
+                        withCredentials([
+                            string(credentialsId: 'inventory-frontend-token',
+                                   variable: 'SONAR_TOKEN')
+                        ]) {
                             bat """
 "${scannerHome}\\bin\\sonar-scanner.bat" ^
 -Dsonar.projectKey=inventory-frontend ^
@@ -70,30 +75,34 @@ pipeline {
         stage('Trivy Image Scan') {
             steps {
                 script {
-                    try {
-                        bat 'trivy --version'
-                        bat """
+                    bat 'trivy --version'
+
+                    bat '''
+IF NOT EXIST trivy-templates mkdir trivy-templates
+
+curl -L https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/html.tpl ^
+-o trivy-templates/html.tpl
+
 trivy image ^
 --severity HIGH,CRITICAL ^
---format html ^
---output %TRIVY_REPORT% ^
+--format template ^
+--template "@trivy-templates/html.tpl" ^
+--output trivy-report.html ^
 %IMAGE_NAME%:%IMAGE_TAG%
-"""
-                        // bat 'docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:0.68.2 image inventory-frontend:latest'
-                    } catch (err) {
-                        echo "Trivy not installed or not found. Skipping image scan."
-                    }
+'''
                 }
             }
         }
 
         stage('Push Image to Docker Hub') {
             steps {
-                withCredentials([usernamePassword(
-                    credentialsId: 'dockerhub-creds',
-                    usernameVariable: 'DOCKER_USER',
-                    passwordVariable: 'DOCKER_PASS'
-                )]) {
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'dockerhub-creds',
+                        usernameVariable: 'DOCKER_USER',
+                        passwordVariable: 'DOCKER_PASS'
+                    )
+                ]) {
                     bat """
 echo %DOCKER_PASS% | docker login -u %DOCKER_USER% --password-stdin
 docker push %IMAGE_NAME%:%IMAGE_TAG%
@@ -112,7 +121,9 @@ docker push %IMAGE_NAME%:%IMAGE_TAG%
 
     post {
         always {
-            archiveArtifacts artifacts: 'trivy-report.html', allowEmptyArchive: true, fingerprint: true
+            archiveArtifacts artifacts: 'trivy-report.html',
+                             allowEmptyArchive: false,
+                             fingerprint: true
         }
         success {
             echo 'CI/CD Pipeline executed successfully'
