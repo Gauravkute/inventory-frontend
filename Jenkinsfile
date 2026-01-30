@@ -6,9 +6,8 @@ pipeline {
     }
 
     environment {
-        IMAGE_NAME   = "gaurav0915/inventory-frontend"
-        IMAGE_TAG    = "latest"
-        TRIVY_REPORT = "trivy-report.html"
+        IMAGE_NAME = "gaurav0915/inventory-frontend"
+        IMAGE_TAG  = "latest"
     }
 
     stages {
