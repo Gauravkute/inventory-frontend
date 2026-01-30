@@ -12,7 +12,6 @@ pipeline {
     }
 
     stages {
-
         stage('Clean Workspace') {
             steps {
                 cleanWs()
@@ -28,7 +27,8 @@ pipeline {
 
         stage('Reset Node Modules') {
             steps {
-                bat 'rmdir /s /q node_modules || exit 0'
+                // Using || exit 0 to prevent failure if node_modules doesn't exist yet
+                bat 'if exist node_modules rmdir /s /q node_modules'
                 bat 'npm install'
             }
         }
@@ -54,15 +54,15 @@ pipeline {
                             string(credentialsId: 'inventory-frontend-token', variable: 'SONAR_TOKEN')
                         ]) {
                             bat """
-"${scannerHome}\\bin\\sonar-scanner.bat" ^
--Dsonar.projectKey=inventory-frontend ^
--Dsonar.projectName=Inventory-Frontend ^
--Dsonar.sources=src ^
--Dsonar.tests=src ^
--Dsonar.test.inclusions=**/*.test.js ^
--Dsonar.javascript.lcov.reportPaths=coverage/lcov.info ^
--Dsonar.token=%SONAR_TOKEN%
-"""
+                            "${scannerHome}\\bin\\sonar-scanner.bat" ^
+                            -Dsonar.projectKey=inventory-frontend ^
+                            -Dsonar.projectName=Inventory-Frontend ^
+                            -Dsonar.sources=src ^
+                            -Dsonar.tests=src ^
+                            -Dsonar.test.inclusions=**/*.test.js ^
+                            -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info ^
+                            -Dsonar.token=%SONAR_TOKEN%
+                            """
                         }
                     }
                 }
@@ -71,34 +71,32 @@ pipeline {
 
         stage('Build Docker Image') {
             steps {
-                bat 'docker build -t inventory-frontend .'
-                bat 'docker tag inventory-frontend %IMAGE_NAME%:%IMAGE_TAG%'
+                bat 'docker build -t %IMAGE_NAME%:%IMAGE_TAG% .'
             }
         }
 
         stage('Trivy Image Scan') {
             steps {
                 bat """
-IF NOT EXIST trivy-templates mkdir trivy-templates
+                IF NOT EXIST trivy-templates mkdir trivy-templates
 
-curl -L https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/html.tpl ^
--o trivy-templates\\report.html
+                curl -L https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/html.tpl ^
+                -o trivy-templates\\report.html
 
-curl -L https://raw.githubusercontent.com/Gauravkute/custom-templates/main/html-with-chart.tpl ^
--o trivy-templates\\html-with-chart.tpl
+                curl -L https://raw.githubusercontent.com/Gauravkute/custom-templates/main/html-with-chart.tpl ^
+                -o trivy-templates\\html-with-chart.tpl
 
-trivy image --severity LOW,MEDIUM,HIGH,CRITICAL ^
---format template ^
---template "@trivy-templates\\html-with-chart.tpl" ^
---output trivy-report.html %IMAGE_NAME%:%IMAGE_TAG%
-"""
+                trivy image --severity LOW,MEDIUM,HIGH,CRITICAL ^
+                --format template ^
+                --template "@trivy-templates\\html-with-chart.tpl" ^
+                --output trivy-report.html %IMAGE_NAME%:%IMAGE_TAG%
+                """
             }
         }
 
         stage('Generate Security Dashboard') {
             steps {
                 script {
-                    // Dynamically create dashboard.html
                     def dashboardContent = """
                     <html>
                     <head><title>Security Dashboard</title></head>
@@ -107,7 +105,7 @@ trivy image --severity LOW,MEDIUM,HIGH,CRITICAL ^
                     <ul>
                       <li>Build Number: ${env.BUILD_NUMBER}</li>
                       <li>Docker Image: ${env.IMAGE_NAME}:${env.IMAGE_TAG}</li>
-                      <li>Security Scan: Passed</li>
+                      <li>Security Scan: Completed</li>
                     </ul>
                     </body>
                     </html>
@@ -121,15 +119,15 @@ trivy image --severity LOW,MEDIUM,HIGH,CRITICAL ^
             steps {
                 withCredentials([
                     usernamePassword(
-                        credentialsId: 'dockerhub-creds',
-                        usernameVariable: 'DOCKER_USER',
+                        credentialsId: 'dockerhub-creds', 
+                        usernameVariable: 'DOCKER_USER', 
                         passwordVariable: 'DOCKER_PASS'
                     )
                 ]) {
                     bat """
-echo %DOCKER_PASS% | docker login -u %DOCKER_USER% --password-stdin
-docker push %IMAGE_NAME%:%IMAGE_TAG%
-"""
+                    echo %DOCKER_PASS% | docker login -u %DOCKER_USER% --password-stdin
+                    docker push %IMAGE_NAME%:%IMAGE_TAG%
+                    """
                 }
             }
         }
@@ -144,12 +142,8 @@ docker push %IMAGE_NAME%:%IMAGE_TAG%
 
     post {
         always {
-            // Archive Trivy HTML report
-            archiveArtifacts artifacts: 'trivy-report.html',
-                             allowEmptyArchive: false,
-                             fingerprint: true
-
-            // Publish Trivy report in Jenkins
+            archiveArtifacts artifacts: 'trivy-report.html', allowEmptyArchive: false
+            
             publishHTML([
                 reportName: 'Trivy Security Report',
                 reportDir: '.',
@@ -158,7 +152,6 @@ docker push %IMAGE_NAME%:%IMAGE_TAG%
                 alwaysLinkToLastBuild: true
             ])
 
-            // Publish Security Dashboard in Jenkins
             publishHTML([
                 reportName: 'Security Dashboard',
                 reportDir: '.',
@@ -166,12 +159,15 @@ docker push %IMAGE_NAME%:%IMAGE_TAG%
                 keepAll: true,
                 alwaysLinkToLastBuild: true
             ])
+            
+            // Clean up Docker credentials on the agent
+            bat 'docker logout'
         }
         success {
-            echo 'CI/CD Pipeline executed successfully'
+            echo 'CI/CD Pipeline executed successfully!'
         }
         failure {
-            echo 'CI/CD Pipeline failed'
+            echo 'CI/CD Pipeline failed. Check the logs for details.'
         }
     }
 }
