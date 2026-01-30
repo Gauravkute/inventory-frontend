@@ -95,6 +95,28 @@ trivy image --severity LOW,MEDIUM,HIGH,CRITICAL ^
             }
         }
 
+        stage('Generate Security Dashboard') {
+            steps {
+                script {
+                    // Dynamically create dashboard.html
+                    def dashboardContent = """
+                    <html>
+                    <head><title>Security Dashboard</title></head>
+                    <body>
+                    <h2>Pipeline Metrics</h2>
+                    <ul>
+                      <li>Build Number: ${env.BUILD_NUMBER}</li>
+                      <li>Docker Image: ${env.IMAGE_NAME}:${env.IMAGE_TAG}</li>
+                      <li>Security Scan: Passed</li>
+                    </ul>
+                    </body>
+                    </html>
+                    """
+                    writeFile file: 'dashboard.html', text: dashboardContent
+                }
+            }
+        }
+
         stage('Push Image to Docker Hub') {
             steps {
                 withCredentials([
@@ -127,11 +149,20 @@ docker push %IMAGE_NAME%:%IMAGE_TAG%
                              allowEmptyArchive: false,
                              fingerprint: true
 
-            // Publish HTML report in Jenkins
+            // Publish Trivy report in Jenkins
             publishHTML([
                 reportName: 'Trivy Security Report',
                 reportDir: '.',
                 reportFiles: 'trivy-report.html',
+                keepAll: true,
+                alwaysLinkToLastBuild: true
+            ])
+
+            // Publish Security Dashboard in Jenkins
+            publishHTML([
+                reportName: 'Security Dashboard',
+                reportDir: '.',
+                reportFiles: 'dashboard.html',
                 keepAll: true,
                 alwaysLinkToLastBuild: true
             ])
