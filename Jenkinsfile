@@ -27,7 +27,6 @@ pipeline {
 
         stage('Reset Node Modules') {
             steps {
-                // Using || exit 0 to prevent failure if node_modules doesn't exist yet
                 bat 'if exist node_modules rmdir /s /q node_modules'
                 bat 'npm install'
             }
@@ -142,9 +141,11 @@ pipeline {
 
     post {
         always {
-            archiveArtifacts artifacts: 'trivy-report.html', allowEmptyArchive: false
+            // Archive the files first to ensure they exist for the publisher
+            archiveArtifacts artifacts: 'trivy-report.html, dashboard.html', allowEmptyArchive: false
             
-            publishHTML([
+            // Using the requested 'target' syntax
+            publishHTML(target: [
                 reportName: 'Trivy Security Report',
                 reportDir: '.',
                 reportFiles: 'trivy-report.html',
@@ -152,7 +153,7 @@ pipeline {
                 alwaysLinkToLastBuild: true
             ])
 
-            publishHTML([
+            publishHTML(target: [
                 reportName: 'Security Dashboard',
                 reportDir: '.',
                 reportFiles: 'dashboard.html',
@@ -160,14 +161,13 @@ pipeline {
                 alwaysLinkToLastBuild: true
             ])
             
-            // Clean up Docker credentials on the agent
             bat 'docker logout'
         }
         success {
             echo 'CI/CD Pipeline executed successfully!'
         }
         failure {
-            echo 'CI/CD Pipeline failed. Check the logs for details.'
+            echo 'CI/CD Pipeline failed.'
         }
     }
 }
