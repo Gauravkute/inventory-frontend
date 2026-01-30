@@ -2,6 +2,7 @@ pipeline {
     agent any
 
     tools {
+        git 'Git-2.44'
         nodejs 'NodeJS'
     }
 
