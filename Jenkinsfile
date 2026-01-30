@@ -39,12 +39,16 @@ pipeline {
 
         stage('SonarQube Analysis') {
             steps {
-                withSonarQubeEnv('SonarQubeServer') {
-                    withCredentials([
-                        string(credentialsId: 'inventory-frontend-token',
-                               variable: 'SONAR_TOKEN')
-                    ]) {
-                        bat """
+                script {
+                    withSonarQubeEnv('SonarQubeServer') {
+
+                        def scannerHome = tool 'SonarScanner'
+
+                        withCredentials([
+                            string(credentialsId: 'inventory-frontend-token',
+                                   variable: 'SONAR_TOKEN')
+                        ]) {
+                            bat """
 "%scannerHome%\\bin\\sonar-scanner.bat" ^
 -Dsonar.projectKey=inventory-frontend ^
 -Dsonar.projectName=Inventory-Frontend ^
@@ -54,6 +58,7 @@ pipeline {
 -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info ^
 -Dsonar.token=%SONAR_TOKEN%
 """
+                        }
                     }
                 }
             }
