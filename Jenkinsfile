@@ -79,14 +79,17 @@ pipeline {
         stage('Trivy Image Scan') {
             steps {
                 bat """
-trivy --version
-
 IF NOT EXIST trivy-templates mkdir trivy-templates
-curl -L https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/html.tpl -o trivy-templates\\html.tpl
 
-trivy image --severity HIGH,CRITICAL ^
+curl -L https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/html.tpl ^
+-o trivy-templates\\report.html
+
+curl -L https://raw.githubusercontent.com/Gauravkute/custom-templates/main/html-with-chart.tpl ^
+-o trivy-templates\\html-with-chart.tpl
+
+trivy image --severity LOW,MEDIUM,HIGH,CRITICAL ^
 --format template ^
---template "@trivy-templates\\html.tpl" ^
+--template "@trivy-templates\\html-with-chart.tpl" ^
 --output trivy-report.html %IMAGE_NAME%:%IMAGE_TAG%
 """
             }
@@ -119,9 +122,19 @@ docker push %IMAGE_NAME%:%IMAGE_TAG%
 
     post {
         always {
+            // Archive Trivy HTML report
             archiveArtifacts artifacts: 'trivy-report.html',
                              allowEmptyArchive: false,
                              fingerprint: true
+
+            // Publish HTML report in Jenkins
+            publishHTML([
+                reportName: 'Trivy Security Report',
+                reportDir: '.',
+                reportFiles: 'trivy-report.html',
+                keepAll: true,
+                alwaysLinkToLastBuild: true
+            ])
         }
         success {
             echo 'CI/CD Pipeline executed successfully'
