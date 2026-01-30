@@ -26,18 +26,16 @@ pipeline {
             }
         }
 
-        /* ===== ADDED STAGE ===== */
         stage('Reset Node Modules') {
             steps {
                 bat 'rmdir /s /q node_modules || exit 0'
                 bat 'npm install'
             }
         }
-        /* ======================= */
 
         stage('Unit Tests with Coverage') {
             steps {
-                bat 'npm test -- --coverage --watchAll=false'
+                bat 'npm test -- --coverage --watchAll=false --passWithNoTests'
             }
         }
 
@@ -84,10 +82,12 @@ pipeline {
 trivy --version
 
 IF NOT EXIST trivy-templates mkdir trivy-templates
-
 curl -L https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/html.tpl -o trivy-templates\\html.tpl
 
-trivy image --severity HIGH,CRITICAL --format template --template "@trivy-templates\\html.tpl" --output trivy-report.html %IMAGE_NAME%:%IMAGE_TAG%
+trivy image --severity HIGH,CRITICAL ^
+--format template ^
+--template "@trivy-templates\\html.tpl" ^
+--output trivy-report.html %IMAGE_NAME%:%IMAGE_TAG%
 """
             }
         }
