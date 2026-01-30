@@ -42,20 +42,22 @@ pipeline {
                 script {
                     withSonarQubeEnv('SonarQubeServer') {
 
-                        // Get SonarScanner path from Jenkins
-                        def scannerHome = tool name: 'SonarScanner', type: hudson.plugins.sonar.SonarRunnerInstallation
+                        def scannerHome = tool name: 'SonarScanner',
+                            type: hudson.plugins.sonar.SonarRunnerInstallation
 
                         withCredentials([
                             string(credentialsId: 'inventory-frontend-token', variable: 'SONAR_TOKEN')
                         ]) {
-                            bat "\"${scannerHome}\\bin\\sonar-scanner.bat\" ^
+                            bat """
+"${scannerHome}\\bin\\sonar-scanner.bat" ^
 -Dsonar.projectKey=inventory-frontend ^
 -Dsonar.projectName=Inventory-Frontend ^
 -Dsonar.sources=src ^
 -Dsonar.tests=src ^
 -Dsonar.test.inclusions=**/*.test.js ^
 -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info ^
--Dsonar.token=%SONAR_TOKEN%"
+-Dsonar.token=%SONAR_TOKEN%
+"""
                         }
                     }
                 }
@@ -71,7 +73,7 @@ pipeline {
 
         stage('Trivy Image Scan') {
             steps {
-                bat '''
+                bat """
 trivy --version
 
 IF NOT EXIST trivy-templates mkdir trivy-templates
@@ -79,7 +81,7 @@ IF NOT EXIST trivy-templates mkdir trivy-templates
 curl -L https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/html.tpl -o trivy-templates\\html.tpl
 
 trivy image --severity HIGH,CRITICAL --format template --template "@trivy-templates\\html.tpl" --output trivy-report.html %IMAGE_NAME%:%IMAGE_TAG%
-'''
+"""
             }
         }
 
