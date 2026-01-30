@@ -41,15 +41,12 @@ pipeline {
         stage('SonarQube Analysis') {
             steps {
                 withSonarQubeEnv('SonarQubeServer') {
-                    script {
-                        def scannerHome = tool 'SonarScanner'
-
-                        withCredentials([
-                            string(credentialsId: 'inventory-frontend-token',
-                                   variable: 'SONAR_TOKEN')
-                        ]) {
-                            bat """
-"${scannerHome}\\bin\\sonar-scanner.bat" ^
+                    withCredentials([
+                        string(credentialsId: 'inventory-frontend-token',
+                               variable: 'SONAR_TOKEN')
+                    ]) {
+                        bat """
+sonar-scanner ^
 -Dsonar.projectKey=inventory-frontend ^
 -Dsonar.projectName=Inventory-Frontend ^
 -Dsonar.sources=src ^
@@ -58,7 +55,6 @@ pipeline {
 -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info ^
 -Dsonar.token=%SONAR_TOKEN%
 """
-                        }
                     }
                 }
             }
@@ -66,7 +62,8 @@ pipeline {
 
         stage('Build Docker Image') {
             steps {
-                bat 'docker build -t %IMAGE_NAME%:%IMAGE_TAG% .'
+                bat 'docker build -t inventory-frontend .'
+                bat 'docker tag inventory-frontend %IMAGE_NAME%:%IMAGE_TAG%'
             }
         }
 
@@ -79,7 +76,7 @@ IF NOT EXIST trivy-templates mkdir trivy-templates
 
 curl -L https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/html.tpl -o trivy-templates/html.tpl
 
-trivy image --severity HIGH,CRITICAL --format template --template "@trivy-templates/html.tpl" --output trivy-report.html %IMAGE_NAME%:%IMAGE_TAG%
+trivy image --severity=HIGH,CRITICAL --format=template --template=@trivy-templates/html.tpl --output=trivy-report.html %IMAGE_NAME%:%IMAGE_TAG%
 '''
             }
         }
