@@ -13,6 +13,12 @@ pipeline {
 
     stages {
 
+        stage('Clean Workspace') {
+            steps {
+                cleanWs()
+            }
+        }
+
         stage('Checkout Code') {
             steps {
                 git branch: 'main',
@@ -20,15 +26,18 @@ pipeline {
             }
         }
 
-        stage('Install Dependencies') {
+        /* ===== ADDED STAGE ===== */
+        stage('Reset Node Modules') {
             steps {
+                bat 'rmdir /s /q node_modules || exit 0'
                 bat 'npm install'
             }
         }
+        /* ======================= */
 
         stage('Unit Tests with Coverage') {
             steps {
-                bat 'npm test -- --coverage --watchAll=false ' //--passWithNoTests
+                bat 'npm test -- --coverage --watchAll=false'
             }
         }
 
@@ -39,14 +48,14 @@ pipeline {
         }
 
         stage('SonarQube Analysis') {
-    steps {
-        script {
-            def scannerHome = tool 'SonarScanner'
-            withSonarQubeEnv('SonarQubeServer') {
-                withCredentials([
-                    string(credentialsId: 'inventory-frontend-token', variable: 'SONAR_TOKEN')
-                ]) {
-                    bat """
+            steps {
+                script {
+                    def scannerHome = tool 'SonarScanner'
+                    withSonarQubeEnv('SonarQubeServer') {
+                        withCredentials([
+                            string(credentialsId: 'inventory-frontend-token', variable: 'SONAR_TOKEN')
+                        ]) {
+                            bat """
 "${scannerHome}\\bin\\sonar-scanner.bat" ^
 -Dsonar.projectKey=inventory-frontend ^
 -Dsonar.projectName=Inventory-Frontend ^
@@ -56,12 +65,11 @@ pipeline {
 -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info ^
 -Dsonar.token=%SONAR_TOKEN%
 """
+                        }
+                    }
                 }
             }
         }
-    }
-}
-
 
         stage('Build Docker Image') {
             steps {
